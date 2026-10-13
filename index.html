@@ -119,6 +119,8 @@ footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--rule);font-si
   <nav role="tablist">
     <button role="tab" data-tab="search" aria-selected="true">제품 검색</button>
     <button role="tab" data-tab="custom" aria-selected="false">원재료 분석</button>
+    <button role="tab" data-tab="stats" aria-selected="false">식품유형 통계</button>
+    <button role="tab" data-tab="criteria" aria-selected="false">판정 기준</button>
     <button role="tab" data-tab="check" aria-selected="false">연결 확인</button>
   </nav>
 
@@ -140,6 +142,43 @@ footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--rule);font-si
     <div id="c-detail" class="detail" style="margin-top:20px"></div>
   </section>
 
+  <section id="tab-stats" hidden>
+    <p class="note" style="margin:0 0 8px">한 식품유형의 제품 전체에 판정 기준을 적용해 초가공식품 비율과 자주 쓰이는 첨가물을 계산해요. (식약처 품목제조보고 원재료 자료)</p>
+    <form id="stats-form" class="row">
+      <input id="s-type" value="과자" placeholder="식품유형 (예: 과자, 탄산음료, 소시지, 유탕면, 캔디류)" aria-label="식품유형">
+      <select id="s-max" aria-label="최대 제품 수"><option value="500">최대 500개</option><option value="1000" selected>최대 1,000개</option><option value="3000">최대 3,000개</option></select>
+      <button class="btn" id="stats-btn">통계 계산</button>
+    </form>
+    <div id="stats"></div>
+  </section>
+
+  <section id="tab-criteria" hidden>
+    <div class="panel" style="max-width:820px">
+      <h3 class="sec">이 프로그램의 판정 기준</h3>
+      <p>가공 단계는 브라질 상파울루대 연구진이 만든 <b>NOVA 분류</b>를 따라요. NOVA는 영양소가 아니라 <b>가공 방법과 원재료</b>로 식품을 4단계로 나눠요.</p>
+      <table class="rank"><thead><tr><th>단계</th><th>이름</th><th>프로그램의 판정 방법</th></tr></thead><tbody>
+        <tr><td><span class="dot" style="background:var(--g1);display:inline-grid">1</span></td><td>최소 가공 식품</td><td>첨가물도, 소금·설탕·기름 같은 요리 재료도 더하지 않았을 때</td></tr>
+        <tr><td><span class="dot" style="background:var(--g2);display:inline-grid">2</span></td><td>가공된 요리 재료</td><td>소금, 설탕, 기름처럼 요리 재료 자체일 때</td></tr>
+        <tr><td><span class="dot" style="background:var(--g3);display:inline-grid">3</span></td><td>가공식품</td><td>식품에 요리 재료를 더했거나, 보존료·산도조절제처럼 보존 목적의 첨가물만 있을 때</td></tr>
+        <tr><td><span class="dot" style="background:var(--g4);display:inline-grid">4</span></td><td>초가공식품</td><td><b>초가공 지표 성분</b>이 하나라도 있을 때</td></tr>
+      </tbody></table>
+      <h3 class="sec" style="margin-top:20px">초가공 지표 성분</h3>
+      <p>NOVA는 <b>집에서 요리할 때는 거의 쓰지 않고, 맛·색·질감을 바꾸는 성분</b>이 들어있으면 초가공식품으로 봐요. 이 프로그램은 다음을 지표로 써요.</p>
+      <ul>
+        <li><b>미각·외관을 바꾸는 첨가물:</b> 향료, 향미증진제, 착색료, 유화제, 증점제·안정제, 감미료, 유화염</li>
+        <li><b>공업적으로 만든 원료:</b> 액상과당, 변성전분·말토덱스트린, 분리 단백질, 쇼트닝·경화유, 효모추출물·가수분해 단백</li>
+      </ul>
+      <p>보존료, 산화방지제, 산도조절제, 팽창제는 <b>지표로 보지 않아요.</b> 전통적인 가공식품(치즈, 통조림 등)에도 쓰이기 때문이에요.</p>
+      <h3 class="sec" style="margin-top:20px">한계</h3>
+      <ul>
+        <li>원재료 <b>이름</b>으로만 판단해요. 첨가물의 <b>양</b>은 알 수 없어요.</li>
+        <li>제품마다 표기가 달라 놓치는 성분이 있을 수 있어요. 첨가물 분류는 식약처 「식품첨가물의 기준 및 규격」으로 확인하는 것이 좋아요.</li>
+        <li>초가공식품이라고 해서 곧바로 해롭다는 뜻은 아니에요. 허가된 첨가물은 기준 안에서 쓰여요. 이 판정은 식품을 고를 때 참고하는 정보예요.</li>
+      </ul>
+      <p class="note">참고: Monteiro 외, 「Ultra-processed foods, diet quality, and health using the NOVA classification system」(FAO, 2019)</p>
+    </div>
+  </section>
+
   <section id="tab-check" hidden>
     <p>인증키가 제대로 작동하는지 확인해요. 키는 서버에만 있어서 이 화면에는 나오지 않아요.</p>
     <button class="btn" id="check-btn">연결 확인</button>
@@ -157,7 +196,7 @@ footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--rule);font-si
 const ADD = [
   {a:['아질산나트륨','아질산'],cls:'발색제',mk:0,why:'고기 속 색소 단백질(미오글로빈)과 결합해 붉은색을 유지해요. 보툴리누스균이 자라는 것도 막아요.',lab:'그리스 시약을 넣으면 분홍~적자색으로 변해 검출할 수 있어요.'},
   {a:['안식향산나트륨','안식향산','벤조산'],cls:'보존료',mk:0,why:'산성 환경에서 이온화되지 않은 분자가 미생물 세포막을 통과해 증식을 막아요. 그래서 pH가 낮은 음료에 주로 써요.'},
-  {a:['소브산칼륨','소브산','솔빈산'],cls:'보존료',mk:0,why:'곰팡이와 효모의 효소 작용을 방해해 증식을 늦춰요. 산성일수록 효과가 커요.'},
+  {a:['소브산칼륨','소브산','솔빈산','프로피온산','데히드로초산'],cls:'보존료',mk:0,why:'곰팡이와 효모의 효소 작용을 방해해 증식을 늦춰요. 산성일수록 효과가 커요.'},
   {a:['보존료'],cls:'보존료',mk:0,generic:1,why:'미생물이 자라는 것을 막아 식품이 상하지 않게 해요.'},
   {a:['아스코르브산나트륨','아스코르브산','비타민c'],cls:'산화방지제',mk:0,why:'자기가 먼저 산화되면서 다른 성분의 산화를 막아요.'},
   {a:['토코페롤','비타민e'],cls:'산화방지제',mk:0,why:'지방이 산패할 때 생기는 자유 라디칼에 전자를 내주어 연쇄 반응을 끊어요.'},
@@ -166,18 +205,19 @@ const ADD = [
   {a:['인산'],cls:'산도조절제',mk:0,why:'강한 신맛을 내고 pH를 낮춰요. 콜라류 음료에 주로 쓰여요.'},
   {a:['산도조절제'],cls:'산도조절제',mk:0,generic:1,why:'식품의 pH를 원하는 범위로 맞춰요.'},
   {a:['폴리인산나트륨','피로인산나트륨','제이인산나트륨','인산염'],cls:'유화염·품질개량제',mk:1,why:'단백질이 물을 더 많이 붙잡게 해서 고기 가공품을 촉촉하고 탄력 있게 만들어요.'},
-  {a:['l-글루탐산나트륨','글루탐산나트륨','리보뉴클레오티드','이노신산','구아닐산'],cls:'향미증진제',mk:1,why:'혀의 감칠맛 수용체에 결합해 감칠맛을 강하게 느끼게 해요.'},
+  {a:['l-글루탐산나트륨','글루탐산나트륨','글루타민산나트륨','글루타민산','리보뉴클레오티드','이노신산','구아닐산','호박산'],cls:'향미증진제',mk:1,why:'혀의 감칠맛 수용체에 결합해 감칠맛을 강하게 느끼게 해요.'},
   {a:['향미증진제'],cls:'향미증진제',mk:1,generic:1,why:'감칠맛을 강하게 느끼게 해서 맛을 진하게 만들어요.'},
   {a:['효모추출물','가수분해','hvp'],cls:'향미 원료',mk:1,why:'단백질을 분해해 만든 아미노산이 감칠맛을 내요. 공장에서 만드는 원료라 초가공 지표로 봐요.'},
   {a:['합성향료','천연향료','향료','바닐린'],cls:'향료',mk:1,why:'휘발성 분자가 코의 후각 수용체를 자극해 특정한 맛과 향을 느끼게 해요.'},
-  {a:['코치닐','카라멜색소','비트레드','치자황색소','치자청색소','파프리카추출색소','홍국색소','황색제4호','황색제5호','적색제40호','적색제3호','청색제1호','착색료','색소'],cls:'착색료',mk:1,why:'특정 파장의 빛을 흡수하고 나머지를 반사해 색을 내요.',lab:'종이 크로마토그래피로 여러 색소를 분리해 확인할 수 있어요.'},
+  {a:['코치닐','카라멜색소','비트레드','치자황색소','치자청색소','파프리카추출색소','홍국색소','베타카로틴','카로틴','황색제4호','황색제5호','적색제40호','적색제3호','청색제1호','착색료','색소'],cls:'착색료',mk:1,why:'특정 파장의 빛을 흡수하고 나머지를 반사해 색을 내요.',lab:'종이 크로마토그래피로 여러 색소를 분리해 확인할 수 있어요.'},
   {a:['레시틴','글리세린지방산에스테르','자당지방산에스테르','폴리소르베이트','유화제'],cls:'유화제',mk:1,why:'한 분자 안에 물과 친한 부분과 기름과 친한 부분이 함께 있어서 물과 기름이 섞이게 해요.'},
-  {a:['카라기난','구아검','잔탄검','로커스트콩검','카복시메틸셀룰로스','펙틴','증점제','안정제','젤화제','알긴산'],cls:'증점제',mk:1,why:'긴 사슬의 다당류가 물을 붙잡아 그물 구조를 만들어서 걸쭉하거나 탱글한 질감을 내요.'},
-  {a:['아스파탐','수크랄로스','아세설팜칼륨','스테비올배당체','스테비아','에리스리톨','사카린나트륨','말티톨','감미료'],cls:'감미료',mk:1,why:'혀의 단맛 수용체에 결합하지만 설탕보다 훨씬 적은 양으로 단맛을 내요.'},
+  {a:['카라기난','구아검','잔탄검','산탄검','젤란검','아라비아검','셀룰로스검','타마린드검','로커스트콩검','카복시메틸셀룰로스','펙틴','증점제','안정제','젤화제','알긴산'],cls:'증점제',mk:1,why:'긴 사슬의 다당류가 물을 붙잡아 그물 구조를 만들어서 걸쭉하거나 탱글한 질감을 내요.'},
+  {a:['아스파탐','수크랄로스','아세설팜칼륨','스테비올배당체','스테비아','에리스리톨','사카린나트륨','말티톨','소비톨','소르비톨','자일리톨','감미료'],cls:'감미료',mk:1,why:'혀의 단맛 수용체에 결합하지만 설탕보다 훨씬 적은 양으로 단맛을 내요.'},
   {a:['변성전분','말토덱스트린','덱스트린'],cls:'가공 원료',mk:1,why:'전분을 화학적·물리적으로 바꾼 원료로 질감과 점도를 조절해요. 집에서는 쓰지 않는 원료라 초가공 지표로 봐요.'},
   {a:['액상과당','과당포도당액','고과당','결정과당'],cls:'가공 원료',mk:1,why:'옥수수 전분을 효소로 분해·전환해 만든 당이에요. 공업적으로 만든 원료라 초가공 지표로 봐요.'},
-  {a:['분리대두단백','대두단백','분리유청단백','농축유청단백'],cls:'가공 원료',mk:1,why:'식품에서 단백질만 분리한 원료로 식감과 단백질 함량을 높여요.'},
+  {a:['분리대두단백','대두단백','분리유청단백','농축유청단백','카제인'],cls:'가공 원료',mk:1,why:'식품에서 단백질만 분리한 원료로 식감과 단백질 함량을 높여요.'},
   {a:['쇼트닝','마가린','경화유','가공유지'],cls:'가공 원료',mk:1,why:'식물성 기름을 고체로 바꾼 유지예요. 바삭하고 부드러운 식감을 내요.'},
+  {a:['아황산','메타중아황산','차아황산'],cls:'표백제·산화방지제',mk:0,why:'산소를 먼저 소비해 갈변과 산화를 막고, 색을 밝게 유지해요. 말린 과일, 와인 등에 쓰여요.'},
   {a:['탄산수소나트륨','탄산수소암모늄','팽창제','베이킹파우더'],cls:'팽창제',mk:0,why:'열이나 산과 만나 이산화탄소 기체를 만들어 반죽을 부풀게 해요.'},
   {a:['이산화탄소','탄산가스'],cls:'탄산가스',mk:0,why:'압력을 가해 물에 녹인 이산화탄소가 탄산이 되어 톡 쏘는 맛을 내요.'},
   {a:['카페인'],cls:'기타',mk:0,why:'쓴맛을 내고 중추신경을 자극하는 성분이에요.'},
@@ -188,11 +228,14 @@ const NEUTRAL = ['정제수','물','혼합제제'];
 const NOVA = {1:['가공하지 않았거나 최소한으로 가공','최소 가공','--g1'],2:['가공된 요리 재료','요리 재료','--g2'],3:['가공식품','가공식품','--g3'],4:['초가공식품','초가공','--g4']};
 const ALIASES = ADD.flatMap(e=>e.a.map(a=>({a:a.toLowerCase(),e}))).sort((x,y)=>y.a.length-x.a.length);
 
-function tokenize(t){return String(t||'').replace(/\d+(\.\d+)?\s*%/g,' ').split(/[,\(\)\[\]\{\}:;\/·、\n]+/).map(s=>s.trim()).filter(Boolean);}
-function matchAdd(t){const l=t.toLowerCase().replace(/\s/g,'');for(const {a,e} of ALIASES) if(l.includes(a)) return e;return null;}
+const ORIGIN='(?:국|국내|외국|수입|미국|호주|중국|베트남|태국|캐나다|브라질|인도|인도네시아|말레이시아|필리핀|칠레|뉴질랜드|독일|프랑스|이탈리아|스페인|우크라이나|러시아|아르헨티나|일본|영국|네덜란드|덴마크|폴란드|멕시코|페루|파키스탄|미얀마|튀르키예|터키|벨기에|스리랑카|가나|코트디부아르|에콰도르|파라과이|헝가리|오스트리아|스위스|노르웨이|아일랜드|남아프리카공화국)산';
+const ORIGIN_PAREN=new RegExp('\\((?:[^()]*:\\s*)?'+ORIGIN+'(?:\\s*[,/]\\s*'+ORIGIN+')*(?:\\s*등)?\\)','g');
+const ORIGIN_TOKEN=new RegExp('^'+ORIGIN+'$');
+function tokenize(t){return String(t||'').replace(ORIGIN_PAREN,' ').replace(/\d+(\.\d+)?\s*%/g,' ').split(/[,\(\)\[\]\{\}:;\/·、\n]+/).map(s=>s.trim()).filter(Boolean);}
+function matchAdd(t){const l=t.toLowerCase().replace(/\s/g,'');if(l.includes('균'))return null;for(const {a,e} of ALIASES) if(l.includes(a)) return e;return null;}
 function analyze(raw){
   const found=[],cul=[];let foods=0;
-  for(const t of tokenize(raw)){const e=matchAdd(t);if(e){found.push({name:t,e});continue;}if(CULINARY.some(c=>t.includes(c))){cul.push(t);continue;}if(!NEUTRAL.includes(t))foods++;}
+  for(const t of tokenize(raw)){const e=matchAdd(t);if(e){found.push({name:t,e});continue;}if(CULINARY.some(c=>t.includes(c))){cul.push(t);continue;}if(!NEUTRAL.includes(t)&&!ORIGIN_TOKEN.test(t))foods++;}
   const spec=new Set(found.filter(f=>!f.e.generic).map(f=>f.e.cls));const seen=new Set();
   const adds=found.filter(f=>!(f.e.generic&&spec.has(f.e.cls))).filter(f=>seen.has(f.name)?false:(seen.add(f.name),true));
   const mk=adds.filter(f=>f.e.mk),ot=adds.filter(f=>!f.e.mk),u=xs=>[...new Set(xs)];
@@ -207,13 +250,15 @@ function analyze(raw){
 
 
 /* ================= 서버 함수 호출 (키는 서버에만 있음) ================= */
-async function food(params){
-  const r=await fetch('/api/food?'+new URLSearchParams(params));
+async function call(fn,params){
+  const r=await fetch(`/api/${fn}?`+new URLSearchParams(params));
   const text=await r.text();let d;
-  try{d=JSON.parse(text);}catch{throw new Error(`우리 사이트의 서버 함수(/api/food)가 응답하지 않아요 (상태 ${r.status}). api 폴더가 저장소 맨 위에 있는지 확인해 주세요.`);}
+  try{d=JSON.parse(text);}catch{throw new Error(`우리 사이트의 서버 함수(/api/${fn})가 응답하지 않아요 (상태 ${r.status}). api 폴더 안에 ${fn}.js가 있는지 확인해 주세요.`);}
   if(!r.ok) throw new Error((d.error||'요청에 실패했어요.')+(d.preview?`\n\n[응답 앞부분] ${d.preview}`:''));
   return d;
 }
+const food=p=>call('food',p);
+const rawApi=p=>call('raw',p);
 
 /* ================= 공통 ================= */
 const $=s=>document.querySelector(s);
@@ -234,7 +279,7 @@ function nutritionHTML(row){
 function verdictHTML(name,raw,a,meta){
   return `<div class="verdict"><div class="nova" style="background:var(${NOVA[a.g][2]})"><span>NOVA</span><b>${a.g}</b><span>단계</span></div>
   <div style="min-width:0"><h2>${esc(name)}</h2><p class="meta">${esc(NOVA[a.g][0])}${meta?' · '+esc(meta):''}</p>
-  <ul class="reason">${a.reasons.map(r=>`<li>${r}</li>`).join('')}</ul><p class="ing"><b>원재료</b> ${esc(raw)}</p></div></div>`;
+  <ul class="reason">${a.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul><p class="ing"><b>원재료</b> ${esc(raw)}</p></div></div>`;
 }
 function additivesHTML(a){
   if(!a.adds.length) return '<p class="msg">원재료명에서 첨가물을 찾지 못했어요.</p>';
@@ -250,9 +295,18 @@ function labHTML(id,a){
   ${a.adds.map(f=>{const v=d[f.name]||'';return `<tr><td>${esc(f.name)}</td><td><select data-lab="${esc(f.name)}" data-id="${esc(id)}" aria-label="${esc(f.name)} 실험 결과"><option value="" ${!v?'selected':''}>미실시</option><option value="yes" ${v==='yes'?'selected':''}>검출됨</option><option value="no" ${v==='no'?'selected':''}>검출 안 됨</option></select></td><td>${labText(v)}</td></tr>`;}).join('')}
   </tbody></table></div></section>`;
 }
-function analysisHTML(name,raw,id,meta){
+function summaryHTML(a){
+  const cls={};a.adds.forEach(f=>cls[f.e.cls]=(cls[f.e.cls]||0)+1);
+  const chips=Object.entries(cls).map(([c,n])=>`<span class="chip">${esc(c)} ${n}</span>`).join(' ');
+  return `<div class="panel"><h3 class="sec">분석 요약</h3>
+    <div class="hbar"><span>첨가물</span><div class="t"><i style="width:${Math.min(a.adds.length*8,100)}%;background:var(--accent)"></i></div><span class="v">${a.adds.length}개</span></div>
+    <div class="hbar"><span>초가공 지표</span><div class="t"><i style="width:${Math.min(a.markers.length*12,100)}%;background:var(--g4)"></i></div><span class="v">${a.markers.length}개</span></div>
+    <p style="margin:8px 0 0;display:flex;flex-wrap:wrap;gap:6px">${chips||'<span class="note">첨가물 없음</span>'}</p>
+    <p class="note">판정은 「판정 기준」 탭의 NOVA 기준을 따라요.</p></div>`;
+}
+function analysisHTML(name,raw,id,meta,src){
   const a=analyze(raw);
-  return verdictHTML(name,raw,a,meta)+`<section><h3 class="sec">첨가물<small>${a.adds.length}개 · 초가공 지표 ${a.markers.length}개</small></h3>${additivesHTML(a)}</section>`+labHTML(id,a);
+  return verdictHTML(name,raw,a,meta+(src?' · 원재료 출처: '+src:''))+summaryHTML(a)+`<section><h3 class="sec">첨가물<small>${a.adds.length}개 · 초가공 지표 ${a.markers.length}개</small></h3>${additivesHTML(a)}</section>`+labHTML(id,a);
 }
 document.addEventListener('change',e=>{const s=e.target.closest('select[data-lab]');if(!s)return;const d=loadLab(s.dataset.id);d[s.dataset.lab]=s.value;saveLab(s.dataset.id,d);s.closest('tr').lastElementChild.innerHTML=labText(s.value);});
 
@@ -280,30 +334,71 @@ function showItem(i){
   const saved=(()=>{try{return localStorage.getItem('raw:'+id)||'';}catch{return '';}})();
   $('#detail').innerHTML=`<div class="verdict" style="grid-template-columns:1fr"><div><h2>${esc(name)}</h2><p class="meta">${esc(meta)}</p></div></div>
     <div class="two"><section><h3 class="sec">영양성분</h3>${nutritionHTML(r)}</section>
-    <section><h3 class="sec">첨가물·가공 단계</h3><div class="paste"><p class="note">이 제품의 원재료명을 포장이나 판매 사이트에서 복사해 붙여넣으면 분석해요.</p>
+    <section><h3 class="sec">첨가물·가공 단계</h3><div class="paste"><p class="note">원재료를 찾는 중…</p>
       <textarea id="p-ing" placeholder="예: 소맥분, 팜유, 정제소금, 향미증진제…">${esc(saved)}</textarea>
       <button class="btn" id="p-go" style="margin-top:8px">분석하기</button></div></section></div>
     <div id="p-out" class="detail"></div>`;
-  if(saved) $('#p-out').innerHTML=analysisHTML(name,saved,id,meta);
   $('#p-go').onclick=()=>{const raw=$('#p-ing').value.trim();if(!raw){$('#p-ing').focus();return;}
     try{localStorage.setItem('raw:'+id,raw);}catch{}
-    $('#p-out').innerHTML=analysisHTML(name,raw,id,meta);$('#p-out').scrollIntoView({behavior:'smooth',block:'start'});};
+    $('#p-out').innerHTML=analysisHTML(name,raw,id,meta,'직접 입력');$('#p-out').scrollIntoView({behavior:'smooth',block:'start'});};
+  autoRaw(r,name,id,meta,saved);
+}
+async function autoRaw(r,name,id,meta,saved){
+  const box=$('.paste .note');box.textContent='식약처 품목제조보고에서 원재료를 찾는 중…';
+  const no=pick(r,'ITEM_REPORT_NO');let found=null;
+  try{
+    if(no){const d=await rawApi({PRDLST_REPORT_NO:no,end:5});found=d.rows[0];}
+    if(!found){const d=await rawApi({PRDLST_NM:name,end:20});found=d.rows.find(x=>x.PRDLST_NM===name)||null;}
+  }catch(err){if(current===r){box.textContent='원재료를 자동으로 불러오지 못했어요. 원재료명을 붙여넣어 주세요. ('+err.message.split('\n')[0]+')';if(saved)$('#p-out').innerHTML=analysisHTML(name,saved,id,meta,'직접 입력');}return;}
+  if(current!==r) return;
+  if(found&&found.RAWMTRL_NM){
+    $('#p-ing').value=found.RAWMTRL_NM;
+    box.textContent='식약처 품목제조보고의 원재료를 자동으로 불러왔어요. 포장과 다르면 고쳐서 다시 분석할 수 있어요.';
+    $('#p-out').innerHTML=analysisHTML(name,found.RAWMTRL_NM,id,meta,'식약처 품목제조보고');
+  }else{
+    box.textContent='식약처 자료에서 이 제품의 원재료를 찾지 못했어요. 포장이나 판매 사이트의 원재료명을 붙여넣어 주세요.';
+    if(saved)$('#p-out').innerHTML=analysisHTML(name,saved,id,meta,'직접 입력');
+  }
 }
 
 /* ================= 원재료 분석 ================= */
 $('#c-go').addEventListener('click',()=>{const raw=$('#c-ing').value.trim();if(!raw){$('#c-ing').focus();return;}
-  const name=$('#c-name').value.trim()||'직접 입력한 식품';$('#c-detail').innerHTML=analysisHTML(name,raw,'custom:'+name,'');});
+  const name=$('#c-name').value.trim()||'직접 입력한 식품';$('#c-detail').innerHTML=analysisHTML(name,raw,'custom:'+name,'','직접 입력');});
+
+/* ================= 식품유형 통계 ================= */
+$('#stats-form').addEventListener('submit',async e=>{
+  e.preventDefault();const type=$('#s-type').value.trim(),max=+$('#s-max').value;if(!type)return;
+  $('#stats-btn').disabled=true;const out=$('#stats');let all=[],total=0;
+  try{
+    for(let s=1;s<=max;s+=1000){out.innerHTML=`<p class="msg">제품을 모으는 중… ${all.length.toLocaleString('ko-KR')}개</p>`;
+      const d=await rawApi({PRDLST_DCNM:type,start:s,end:Math.min(s+999,max)});total=d.total;all=all.concat(d.rows);if(d.rows.length<1000)break;}
+    if(!all.length){out.innerHTML='<p class="msg">해당 식품유형의 제품을 찾지 못했어요. 식품유형 이름을 확인해 주세요. (예: 과자, 캔디류, 탄산음료, 소시지, 유탕면)</p>';return;}
+    const res=all.map(r=>analyze(r.RAWMTRL_NM)),n=res.length,cnt={1:0,2:0,3:0,4:0};res.forEach(x=>cnt[x.g]++);
+    const cls={},sub={};res.forEach(x=>{new Set(x.adds.map(f=>f.e.cls)).forEach(c=>cls[c]=(cls[c]||0)+1);x.adds.forEach(f=>sub[f.name]=(sub[f.name]||0)+1);});
+    const top=(o,k)=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,k),pct=v=>(v/n*100).toFixed(1)+'%';
+    const avg=(res.reduce((t,x)=>t+x.adds.length,0)/n).toFixed(1);
+    out.innerHTML=`<div class="stats">
+      <div class="panel"><h3 class="sec">초가공식품 비율</h3><div class="big" style="color:var(--g4)">${pct(cnt[4])}</div><p class="note">분석한 제품 ${n.toLocaleString('ko-KR')}개 (전체 ${total.toLocaleString('ko-KR')}개) · 제품당 평균 첨가물 ${avg}개</p>
+        ${[1,2,3,4].map(g=>`<div class="hbar"><span>${g}단계 ${NOVA[g][1]}</span><div class="t"><i style="width:${cnt[g]/n*100}%;background:var(${NOVA[g][2]})"></i></div><span class="v">${pct(cnt[g])}</span></div>`).join('')}</div>
+      <div class="panel"><h3 class="sec">첨가물 용도별 사용 제품 비율</h3>${top(cls,10).map(([c,v])=>`<div class="hbar"><span>${esc(c)}</span><div class="t"><i style="width:${v/n*100}%;background:var(--accent)"></i></div><span class="v">${pct(v)}</span></div>`).join('')||'<p class="note">첨가물이 없어요.</p>'}</div>
+      <div class="panel"><h3 class="sec">가장 많이 쓰인 첨가물</h3><table class="rank"><thead><tr><th>첨가물</th><th>제품 수</th><th>비율</th></tr></thead><tbody>${top(sub,10).map(([s,v])=>`<tr><td>${esc(s)}</td><td class="n">${v.toLocaleString('ko-KR')}</td><td class="n">${pct(v)}</td></tr>`).join('')}</tbody></table>
+        <p class="note">같은 성분이라도 제품마다 표기가 달라 따로 집계될 수 있어요.</p></div></div>`;
+  }catch(err){out.innerHTML=`<p class="msg err">${esc(err.message)}</p>`;}
+  finally{$('#stats-btn').disabled=false;}
+});
 
 /* ================= 연결 확인 ================= */
 $('#check-btn').addEventListener('click',async()=>{const out=$('#check');out.innerHTML='<p class="msg">확인 중…</p>';
-  try{const d=await food({rows:1});out.innerHTML=`<p class="msg"><span class="ok">연결됨</span> · 식품영양성분 DB · 전체 ${d.total.toLocaleString('ko-KR')}건</p>`;}
-  catch(err){out.innerHTML=`<p class="msg err">${esc(err.message)}</p>`;}
+  out.innerHTML='';
+  for(const [fn,label,p] of [[food,'식품영양성분 DB (공공데이터포털 키)',{rows:1}],[rawApi,'품목제조보고 원재료 (식품안전나라 키)',{end:1}]]){
+    try{const d=await fn(p);out.insertAdjacentHTML('beforeend',`<p class="msg"><span class="ok">연결됨</span> · ${label} · 전체 ${d.total.toLocaleString('ko-KR')}건</p>`);}
+    catch(err){out.insertAdjacentHTML('beforeend',`<p class="msg err">${label}\n${esc(err.message)}</p>`);}}
 });
 
 /* ================= 탭 ================= */
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
-  ['search','custom','check'].forEach(t=>$('#tab-'+t).hidden=t!==b.dataset.tab);
+  ['search','custom','stats','criteria','check'].forEach(t=>$('#tab-'+t).hidden=t!==b.dataset.tab);
 }));
 </script>
 </body>
