@@ -19,6 +19,7 @@
 @media (prefers-color-scheme: dark){:root{
   --paper:#141816; --card:#1c211e; --ink:#e8ece9; --muted:#a3ada7; --rule:#333b36; --soft:#252b27;
   --accent:#c38bd6; --accent-soft:#33263a; --g1:#5fbf7c; --g2:#b3c25a; --g3:#e0a54b; --g4:#ec7a6f; color-scheme:dark }}
+
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.6}
 [hidden]{display:none!important}
@@ -118,6 +119,7 @@ footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--rule);font-si
 
   <nav role="tablist">
     <button role="tab" data-tab="search" aria-selected="true">제품 검색</button>
+    <button role="tab" data-tab="meal" aria-selected="false">급식 분석</button>
     <button role="tab" data-tab="custom" aria-selected="false">원재료 분석</button>
     <button role="tab" data-tab="stats" aria-selected="false">식품유형 통계</button>
     <button role="tab" data-tab="criteria" aria-selected="false">판정 기준</button>
@@ -134,7 +136,25 @@ footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--rule);font-si
       <div id="detail" class="detail"></div>
     </div>
   </section>
-
+  <style>.lab td.n{font-family:var(--font-data);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}#m-detail .lab table{min-width:600px}</style>
+  <section id="tab-meal" hidden>
+    <div class="row" style="align-items:center;gap:10px;margin-bottom:10px">
+      <span class="note" style="margin:0">학교</span><b id="m-school"></b>
+      <details><summary class="note" style="cursor:pointer;color:var(--accent)">학교 바꾸기</summary>
+        <form id="m-school-form" class="row" style="margin-top:8px"><input id="m-school-q" placeholder="학교 이름 (예: 선덕고등학교)" aria-label="학교 이름"><button class="btn ghost">찾기</button></form>
+        <div id="m-school-list" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div></details>
+    </div>
+    <form id="m-form" class="row">
+      <input id="m-month" type="month" aria-label="월" style="flex:0 1 180px">
+      <select id="m-type" aria-label="끼니"><option value="">중식·석식 모두</option><option value="중식" selected>중식</option><option value="석식">석식</option><option value="조식">조식</option></select>
+      <button class="btn" id="m-go">불러오기</button>
+    </form>
+    <div id="m-summary" style="margin-top:16px"></div>
+    <div class="search-layout">
+      <div id="m-days" class="results"><p class="msg">월을 고르고 불러오기를 누르면 급식 목록이 나와요.</p></div>
+      <div id="m-detail" class="detail"></div>
+    </div>
+  </section>
   <section id="tab-custom" hidden>
     <p class="note" style="margin:0 0 8px">포장에 적힌 원재료명을 그대로 붙여넣으면 첨가물과 가공 단계를 분석해요.</p>
     <textarea id="c-ing" placeholder="예: 정제수, 액상과당, 구연산, 합성향료, 안식향산나트륨"></textarea>
@@ -400,6 +420,158 @@ document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
   ['search','custom','stats','criteria','check'].forEach(t=>$('#tab-'+t).hidden=t!==b.dataset.tab);
 }));
+</script>
+<script>
+/* ================= 급식 분석 ================= */
+const mealApi=p=>call('meal',p);
+const dishApi=p=>call('dish',p);
+const num=v=>{const n=parseFloat(String(v??'').replace(/,/g,''));return isNaN(n)?null:n;};
+const ALLERGY={1:'난류',2:'우유',3:'메밀',4:'땅콩',5:'대두',6:'밀',7:'고등어',8:'게',9:'새우',10:'돼지고기',11:'복숭아',12:'토마토',13:'아황산류',14:'호두',15:'닭고기',16:'쇠고기',17:'오징어',18:'조개류',19:'잣'};
+const PROCESSED=[['비엔나','비엔나'],['소시지','소시지'],['소떡','소시지'],['스팸','햄'],['베이컨','베이컨'],['어묵','어묵'],['오뎅','어묵'],['맛살','맛살'],['너겟','너겟'],['치킨까스','치킨까스'],['돈까스','돈까스'],['돈가스','돈까스'],['생선까스','생선까스'],['만두','만두'],['떡갈비','떡갈비'],['미트볼','미트볼'],['동그랑땡','동그랑땡'],['완자','완자'],['핫도그','핫도그'],['양파링','양파링'],['고로케','고로케'],['크로켓','고로케'],['치즈스틱','치즈스틱'],['탕수육','탕수육'],['햄','햄']];
+const DISH_ALIAS={'추가밥':'쌀밥','흰밥':'쌀밥','밥':'쌀밥'};
+const processedKw=n=>{for(const [k,q] of PROCESSED) if(n.includes(k)) return q; return null;};
+const MEAL_DV={kcal:['열량','kcal',2000],carb:['탄수화물','g',324],prot:['단백질','g',55],fat:['지방','g',54],sugar:['당류','g',100],na:['나트륨','mg',2000],sat:['포화지방','g',15]};
+
+let school=(()=>{try{return JSON.parse(localStorage.getItem('meal:school'))||null;}catch{return null;}})()||{office:'B10',code:'7010189',name:'선덕고등학교',officeName:'서울특별시교육청'};
+let meals=[],dishCache=new Map(),rawCache=new Map();
+
+function parseDish(line){
+  const allergens=new Set();
+  let s=line.replace(/\(([\d.\s]+)\)/g,(m,g)=>{g.split('.').forEach(x=>{x=x.trim();if(x)allergens.add(+x);});return ' ';});
+  s=s.replace(/[A-Za-z]*((?:\d+\.)+)\s*$/,(m,g)=>{g.split('.').forEach(x=>{if(x)allergens.add(+x);});return '';});
+  const display=s.replace(/\([^)]*\)/g,' ').replace(/(?<=[가-힣])[A-Za-z]{1,2}(?=$|[&*\s])/g,'').replace(/\s+/g,' ').trim();
+  const parts=display.split(/[&*\/+]/).map(p=>p.replace(/[A-Za-z0-9.,%~\-_]/g,'').replace(/\s+/g,'').trim()).filter(p=>p.length>=2)
+    .map((p,i)=>({name:DISH_ALIAS[p]||p,condiment:i>0&&(/(소스|케찹|케첩|드레싱|칠리|마요|머스타드|잼)$/.test(p)||p.length<=2)}));
+  return {display,parts,allergens:[...allergens].filter(n=>ALLERGY[n]).sort((a,b)=>a-b)};
+}
+function parseNtr(t){const o={};String(t).split(/<br\s*\/?>/i).forEach(l=>{const m=l.match(/^\s*(.+?)\(([^)]*)\)\s*:\s*([\d.]+)/);if(m)o[m[1].trim()]=+m[3];});return o;}
+const ymd=s=>`${+s.slice(4,6)}월 ${+s.slice(6,8)}일`;
+const dow=s=>'일월화수목금토'[new Date(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8)).getDay()];
+
+function schoolLine(){$('#m-school').textContent=`${school.name} · ${school.officeName||''}`;}
+schoolLine();
+(()=>{const d=new Date();$('#m-month').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;})();
+
+$('#m-school-form').addEventListener('submit',async e=>{
+  e.preventDefault();const q=$('#m-school-q').value.trim();if(!q)return;const out=$('#m-school-list');out.innerHTML='<p class="msg">찾는 중…</p>';
+  try{const d=await mealApi({op:'school',name:q});
+    out.innerHTML=d.rows.length?d.rows.map((r,i)=>`<button type="button" class="btn ghost" data-si="${i}">${esc(r.name)} <span class="note">${esc(r.officeName)}</span></button>`).join(' '):'<p class="msg">학교를 찾지 못했어요.</p>';
+    out.onclick=ev=>{const b=ev.target.closest('[data-si]');if(!b)return;school=d.rows[+b.dataset.si];try{localStorage.setItem('meal:school',JSON.stringify(school));}catch{}schoolLine();out.innerHTML='';$('#m-days').innerHTML='';$('#m-detail').innerHTML='';$('#m-summary').innerHTML='';};
+  }catch(err){out.innerHTML=`<p class="msg err">${esc(err.message)}</p>`;}
+});
+
+$('#m-form').addEventListener('submit',async e=>{
+  e.preventDefault();const [y,m]=$('#m-month').value.split('-');if(!y)return;
+  const last=new Date(+y,+m,0).getDate(),from=`${y}${m}01`,to=`${y}${m}${String(last).padStart(2,'0')}`;
+  $('#m-go').disabled=true;$('#m-days').innerHTML='<p class="msg">나이스에서 급식을 불러오는 중…</p>';$('#m-detail').innerHTML='';$('#m-summary').innerHTML='';
+  try{
+    const d=await mealApi({office:school.office,school:school.code,from,to});
+    const type=$('#m-type').value;
+    meals=d.rows.filter(r=>!type||r.type===type).sort((a,b)=>a.date.localeCompare(b.date)||a.typeCode.localeCompare(b.typeCode));
+    meals.forEach(r=>{r.items=r.dishes.split(/<br\s*\/?>/i).map(parseDish).filter(x=>x.display);r.kcal=num(r.cal);r.nut=parseNtr(r.ntr);});
+    if(!meals.length){$('#m-days').innerHTML='<p class="msg">이 달에 등록된 급식이 없어요.</p>';return;}
+    renderSummary();
+    $('#m-days').innerHTML=meals.map((r,i)=>{const pk=r.items.some(it=>processedKw(it.display));
+      return `<button data-mi="${i}"><span class="dot" style="background:var(${pk?'--g4':'--g1'})" title="${pk?'가공식품 메뉴 있음':'가공식품 메뉴 없음'}">${+r.date.slice(6)}</span><span>${ymd(r.date)}(${dow(r.date)}) ${esc(r.type)}<small>${esc(r.items.slice(0,3).map(x=>x.display).join(', '))}</small></span></button>`;}).join('');
+    showMeal(0);
+  }catch(err){$('#m-days').innerHTML=`<p class="msg err">${esc(err.message)}</p>`;}
+  finally{$('#m-go').disabled=false;}
+});
+$('#m-days').addEventListener('click',e=>{const b=e.target.closest('button[data-mi]');if(b)showMeal(+b.dataset.mi);});
+
+function renderSummary(){
+  const n=meals.length,withK=meals.filter(r=>r.kcal!=null);
+  const avg=withK.length?Math.round(withK.reduce((t,r)=>t+r.kcal,0)/withK.length):null;
+  const pDays=meals.filter(r=>r.items.some(it=>processedKw(it.display))).length;
+  const sulf=meals.reduce((t,r)=>t+r.items.filter(it=>it.allergens.includes(13)).length,0);
+  const kwCount={};meals.forEach(r=>r.items.forEach(it=>{const k=processedKw(it.display);if(k)kwCount[k]=(kwCount[k]||0)+1;}));
+  const top=Object.entries(kwCount).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${esc(k)} ${v}회`).join(', ');
+  $('#m-summary').innerHTML=`<div class="stats" style="margin-top:0">
+    <div class="panel"><h3 class="sec">이달의 급식<small>${esc(school.name)}</small></h3><div class="big">${n}<span style="font-size:18px">끼</span></div><p class="note">평균 열량 ${avg!=null?avg.toLocaleString('ko-KR')+'kcal (나이스 실제값)':'정보 없음'}</p></div>
+    <div class="panel"><h3 class="sec">가공식품 메뉴가 나온 끼니</h3><div class="big" style="color:var(--g4)">${pDays}<span style="font-size:18px">/${n}</span></div><p class="note">${top||'가공식품 메뉴 없음'}</p></div>
+    <div class="panel"><h3 class="sec">아황산류 표시 메뉴</h3><div class="big">${sulf}<span style="font-size:18px">개</span></div><p class="note">알레르기 13번 아황산류는 표백제·산화방지제로 쓰이는 <b>첨가물</b>이에요. 나이스에 실제로 표시된 정보예요.</p></div>
+  </div>`;
+}
+
+async function estimateDish(name){if(!dishCache.has(name))dishCache.set(name,dishApi({name}).catch(err=>({error:err.message})));return dishCache.get(name);}
+async function processedStats(q){
+  if(!rawCache.has(q))rawCache.set(q,rawApi({PRDLST_NM:q,end:200}).then(d=>{
+    const rows=d.rows.filter(r=>r.RAWMTRL_NM),n=rows.length;if(!n)return {q,n:0};
+    const res=rows.map(r=>analyze(r.RAWMTRL_NM)),cls={};let g4=0,nit=0;
+    res.forEach((a,i)=>{if(a.g===4)g4++;new Set(a.adds.map(f=>f.e.cls)).forEach(c=>cls[c]=(cls[c]||0)+1);if(/아질산/.test(rows[i].RAWMTRL_NM))nit++;});
+    return {q,n,total:d.total,g4,nit,cls:Object.entries(cls).sort((a,b)=>b[1]-a[1]).slice(0,5)};
+  }).catch(err=>({q,error:err.message})));
+  return rawCache.get(q);
+}
+
+let mealToken=0;
+async function showMeal(i){
+  const r=meals[i],tok=++mealToken;
+  document.querySelectorAll('#m-days button').forEach(b=>b.setAttribute('aria-current',b.dataset.mi==i));
+  const out=$('#m-detail');
+  out.innerHTML=`<div class="verdict" style="grid-template-columns:1fr"><div><h2>${ymd(r.date)}(${dow(r.date)}) ${esc(r.type)}</h2><p class="meta">${esc(school.name)} · 나이스 급식식단정보${r.count?` · 급식 인원 ${esc(r.count)}명`:''}</p></div></div>
+    <section><h3 class="sec">메뉴별 추정<small>식약처 식품영양성분 DB의 음식 1인분 기준</small></h3><div class="lab"><table><thead><tr><th>메뉴</th><th>알레르기</th><th>연결된 음식</th><th>열량</th><th>나트륨</th><th>당류</th></tr></thead><tbody id="m-rows">
+    ${r.items.map((it,j)=>`<tr data-row="${j}"><td><b>${esc(it.display)}</b>${processedKw(it.display)?' <span class="chip mk">가공식품</span>':''}</td><td>${it.allergens.map(n=>`<span class="chip"${n===13?' style="color:var(--g4);font-weight:600"':''} title="${n}번">${ALLERGY[n]}</span>`).join(' ')}</td><td colspan="4" class="note">추정 중…</td></tr>`).join('')}
+    </tbody></table></div><p class="note">메뉴 이름이 같아도 학교마다 레시피와 양이 달라요. 아래에서 나이스 실제 열량으로 보정해요.</p></section>
+    <section id="m-calib"></section><section id="m-proc"></section>`;
+
+  const est=await Promise.all(r.items.map(async it=>{
+    const parts=await Promise.all(it.parts.map(async p=>{const d=await estimateDish(p.name);return d&&d.match?{...d,condiment:p.condiment}:d;}));
+    const ok=parts.filter(p=>p&&p.match);const sum={};
+    ok.forEach(p=>{p.grams=p.condiment?20:p.match.servingG;const g=p.grams/100;for(const k in p.match.per100){const v=p.match.per100[k];if(v!=null)sum[k]=(sum[k]||0)+v*g;}});
+    return {it,ok,err:parts.find(p=>p&&p.error),sum};
+  }));
+  if(tok!==mealToken) return;
+  const f=v=>v==null?'-':Math.round(v).toLocaleString('ko-KR');
+  est.forEach((e,j)=>{const tr=document.querySelector(`#m-rows tr[data-row="${j}"]`);const tds=tr.querySelectorAll('td');tds[2].remove();
+    const cell=e.ok.length?e.ok.map(p=>`${esc(p.match.name)} <span class="note">${Math.round(p.grams)}g${p.condiment?' · 소스 기준':p.match.group!=='음식'?' · 가공식품 100g 기준':''}</span>`).join('<br>'):(e.err?`<span class="note">${esc(e.err)}</span>`:'<span class="note">연결된 음식 없음</span>');
+    tr.insertAdjacentHTML('beforeend',`<td>${cell}</td><td class="n">${e.ok.length?f(e.sum.kcal)+'kcal':'-'}</td><td class="n">${e.ok.length?f(e.sum.na)+'mg':'-'}</td><td class="n">${e.ok.length?(e.sum.sugar!=null?e.sum.sugar.toFixed(1)+'g':'-'):'-'}</td>`);});
+
+  const tot={};est.forEach(e=>{for(const k in e.sum)tot[k]=(tot[k]||0)+e.sum[k];});
+  const matched=est.filter(e=>e.ok.length).length;
+  const kRaw=(r.kcal&&tot.kcal)?r.kcal/tot.kcal:null;
+  const calibOK=kRaw!=null&&matched===r.items.length&&kRaw>=0.5&&kRaw<=2;
+  const k=calibOK?kRaw:null;
+  const actual={carb:r.nut['탄수화물'],prot:r.nut['단백질'],fat:r.nut['지방']};
+  const errs=[];
+  const rowsHTML=['kcal','carb','prot','fat','na','sugar','sat'].map(key=>{
+    const [label,unit,dv]=MEAL_DV[key];const raw=tot[key];const cor=raw!=null&&k?raw*k:null;
+    const act=key==='kcal'?r.kcal:actual[key];
+    let errTxt='';if(act!=null&&cor!=null&&key!=='kcal'&&act>0){const e=Math.abs(cor-act)/act*100;errs.push(e);errTxt=`${e.toFixed(0)}%`;}
+    const shown=act!=null?act:cor;const pct=shown!=null?Math.round(shown/dv*100):null;
+    const hi=['na','sugar','sat'].includes(key)&&pct!=null&&pct>=50;
+    return `<tr><td>${label}</td><td class="n">${act!=null?`<b>${act.toLocaleString('ko-KR')}${unit}</b>`:'<span class="note">공개 안 됨</span>'}</td><td class="n">${raw!=null?f(raw)+unit:'-'}</td><td class="n">${cor!=null?(act==null?`<b style="color:var(--accent)">${f(cor)}${unit}</b>`:f(cor)+unit):'-'}</td><td class="n">${errTxt||'-'}</td><td class="n"${hi?' style="color:var(--g4);font-weight:600"':''}>${pct!=null?pct+'%':'-'}</td></tr>`;}).join('');
+  const mape=errs.length?(errs.reduce((a,b)=>a+b,0)/errs.length):null;
+  $('#m-calib').innerHTML=`<h3 class="sec">실제값과 추정값<small>메뉴 ${matched}/${r.items.length}개 연결</small></h3>
+    <div class="lab"><table><thead><tr><th>영양소</th><th>나이스 실제값</th><th>추정 합계</th><th>보정 후 추정</th><th>보정 후 오차</th><th>1일 기준치 대비</th></tr></thead><tbody>${rowsHTML}</tbody></table></div>
+    <p class="note">${k?`보정 계수 k = 실제 열량 ÷ 추정 열량 = ${k.toFixed(2)}. 모든 추정값에 k를 곱했어요. <b style="color:var(--accent)">보라색 굵은 값</b>은 나이스가 공개하지 않아 이 방법으로 추정한 값이에요.`
+      :matched<r.items.length?`메뉴 ${r.items.length-matched}개가 음식 DB와 연결되지 않아 보정하지 않았어요. 추정 합계는 연결된 메뉴만 더한 값이라 실제보다 작아요(최소 추정치).`
+      :kRaw!=null?`보정 계수가 ${kRaw.toFixed(2)}로 너무 커서(정상 범위 0.5~2) 보정하지 않았어요. 메뉴 연결이 잘못됐을 수 있어요.`:'실제 열량이나 추정 열량이 없어 보정하지 못했어요.'}
+    ${mape!=null?` 탄수화물·단백질·지방의 보정 후 평균 오차는 <b>${mape.toFixed(0)}%</b>예요. 이 값이 작을수록 나트륨·당류 추정도 믿을 만해요.`:''} 1일 기준치 대비 비율은 실제값이 있으면 실제값, 없으면 추정값으로 계산했어요.</p>`;
+
+  const kws=[...new Set(r.items.map(it=>processedKw(it.display)).filter(Boolean))];
+  const sulfItems=r.items.filter(it=>it.allergens.includes(13));
+  const proc=$('#m-proc');
+  if(!kws.length&&!sulfItems.length){proc.innerHTML='<h3 class="sec">첨가물 가능성</h3><p class="msg">가공식품으로 보이는 메뉴가 없어요.</p>';return;}
+  proc.innerHTML=`<h3 class="sec">첨가물 가능성<small>학교가 쓴 실제 제품은 알 수 없어서, 같은 이름의 시판 제품 원재료로 추정해요</small></h3>
+    ${sulfItems.length?`<p class="msg" style="border-style:solid">나이스 알레르기 표시에 <b>13번 아황산류</b>가 있는 메뉴: ${sulfItems.map(x=>esc(x.display)).join(', ')}. 아황산류는 표백·산화 방지에 쓰이는 첨가물로, 이건 추정이 아니라 실제 표시예요.</p>`:''}
+    <div class="stats" id="m-proc-cards" style="margin-top:10px">${kws.map(q=>`<div class="panel" data-kw="${esc(q)}"><h3 class="sec">${esc(q)}</h3><p class="note">시판 제품을 분석하는 중…</p></div>`).join('')}</div>`;
+  for(const q of kws){
+    const s=await processedStats(q);if(tok!==mealToken)return;
+    const card=document.querySelector(`#m-proc-cards [data-kw="${CSS.escape(q)}"]`);if(!card)continue;
+    if(s.error){card.innerHTML=`<h3 class="sec">${esc(q)}</h3><p class="msg err">${esc(s.error.split('\n')[0])}</p>`;continue;}
+    if(!s.n){card.innerHTML=`<h3 class="sec">${esc(q)}</h3><p class="note">같은 이름의 시판 제품을 찾지 못했어요.</p>`;continue;}
+    const pct=v=>Math.round(v/s.n*100);
+    card.innerHTML=`<h3 class="sec">${esc(q)}<small>시판 제품 ${s.n}개 분석</small></h3>
+      <div class="hbar"><span>초가공(NOVA 4)</span><div class="t"><i style="width:${pct(s.g4)}%;background:var(--g4)"></i></div><span class="v">${pct(s.g4)}%</span></div>
+      ${s.nit?`<div class="hbar"><span>아질산나트륨</span><div class="t"><i style="width:${pct(s.nit)}%;background:var(--g3)"></i></div><span class="v">${pct(s.nit)}%</span></div>`:''}
+      ${s.cls.map(([c,v])=>`<div class="hbar"><span>${esc(c)}</span><div class="t"><i style="width:${pct(v)}%;background:var(--accent)"></i></div><span class="v">${pct(v)}%</span></div>`).join('')}
+      <p class="note">급식 ${esc(q)}에 이 첨가물이 들어있을 가능성으로 해석해요.${s.nit?' 아질산염은 동아리 그리스 반응 실험으로 직접 확인할 수 있어요.':''}</p>`;
+  }
+}
+
+/* 급식 탭 보이기/숨기기 */
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{$('#tab-meal').hidden=b.dataset.tab!=='meal';}));
 </script>
 </body>
 </html>
